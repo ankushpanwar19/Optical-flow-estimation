@@ -7,3 +7,5 @@ log/*
 results/*
 extras/*
 experiment_recorder.md
+mcp/*
+.vscode/*
