@@ -27,7 +27,7 @@ def make_dataset(dir, phase='train'):
 def humanflow(root, transform=None, target_transform=None,
                   co_transform=None, split=None):
     train_list = make_dataset(root, 'train')
-    test_list = make_dataset(root, 'test')
+    test_list = make_dataset(root, 'val')
     train_dataset = ListDataset(root, train_list, transform, target_transform, co_transform)
     test_dataset = ListDataset(root, test_list, transform, target_transform)
 

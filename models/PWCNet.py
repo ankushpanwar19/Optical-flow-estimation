@@ -6,6 +6,7 @@ Jinwei Gu and Zhile Ren
 """
 
 import torch
+from torch._C import device
 import torch.nn as nn
 from torch.autograd import Variable
 import os
@@ -55,7 +56,7 @@ class PWCDCNet(nn.Module):
 
         """
         super(PWCDCNet,self).__init__()
-
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.upsample =  nn.Upsample(scale_factor=4, mode='bilinear')
 
         self.conv1a  = conv(3,   16, kernel_size=3, stride=2)
@@ -171,12 +172,12 @@ class PWCDCNet(nn.Module):
         vgrid = Variable(grid) + flo
 
         # scale grid to [-1,1]
-        vgrid[:,0,:,:] = 2.0*vgrid[:,0,:,:]/max(W-1,1)-1.0
+        vgrid[:,0,:,:] = 2.0* vgrid[:,0,:,:]/max(W-1,1)-1.0
         vgrid[:,1,:,:] = 2.0*vgrid[:,1,:,:]/max(H-1,1)-1.0
 
         vgrid = vgrid.permute(0,2,3,1)
         output = nn.functional.grid_sample(x, vgrid)
-        mask = torch.autograd.Variable(torch.ones(x.size())).cuda()
+        mask = torch.autograd.Variable(torch.ones(x.size())).to(device=self.device)
         mask = nn.functional.grid_sample(mask, vgrid)
 
         # if W==128:

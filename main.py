@@ -149,15 +149,15 @@ def main():
 
     # create model
     if args.pretrained:
-        network_data = torch.load(args.pretrained)
+        network_data = torch.load(args.pretrained,map_location=device)
         args.arch = network_data['arch']
         print("=> using pre-trained model '{}'".format(args.arch))
     else:
         network_data = None
         print("=> creating model '{}'".format(args.arch))
 
-    model = models.__dict__[args.arch](data=network_data).cuda()
-    model = torch.nn.DataParallel(model).cuda()
+    model = models.__dict__[args.arch](data=network_data).to(device=device)
+    model = torch.nn.DataParallel(model).to(device=device)
     cudnn.benchmark = True
 
     assert(args.solver in ['adam', 'sgd'])
@@ -187,15 +187,15 @@ def main():
 
         # evaluate on validation set
 
-        # with torch.no_grad():
-        #     EPE = validate(val_loader, model, epoch, output_writers)
-        # test_writer.add_scalar('mean EPE', EPE, epoch)
+        with torch.no_grad():
+            EPE = validate(val_loader, model, epoch, output_writers)
+        test_writer.add_scalar('mean EPE', EPE, epoch)
 
-        # if best_EPE < 0:
-        #     best_EPE = EPE
+        if best_EPE < 0:
+            best_EPE = EPE
 
-        # is_best = EPE < best_EPE
-        # best_EPE = min(EPE, best_EPE)
+        is_best = EPE < best_EPE
+        best_EPE = min(EPE, best_EPE)
         save_checkpoint({
             'epoch': epoch + 1,
             'arch': args.arch,
@@ -224,7 +224,7 @@ def train(train_loader, model, optimizer, epoch, train_writer):
         # measure data loading time
         data_time.update(time.time() - end)
         target = target.to(device)
-        input = torch.cat(input,1).to(device)
+        input = torch.cat(input,1).to(device) #concating left and right images
 
         # compute output
         output = model(input)
