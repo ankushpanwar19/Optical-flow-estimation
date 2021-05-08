@@ -22,9 +22,9 @@ from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description='Test Optical Flow',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('data', metavar='DIR', help='path to dataset')
-# parser.add_argument('--arch', dest='arch', type=str, default='pwc', choices=['pwc', 'spynet', 'flownet2'],
-#                     help='flow network architecture. Options: pwc | spynet')
+parser.add_argument('--data', metavar='DIR', help='path to dataset')
+parser.add_argument('--arch', dest='arch', type=str, default='pwc', choices=['pwc', 'spynet', 'flownet2'],
+                    help='flow network architecture. Options: pwc | spynet')
 parser.add_argument('--dataset', dest='dataset', default='KITTI', choices=['KITTI_occ', 'humanflow'],
                     help='test dataset')
 parser.add_argument('--div-flow', default=20, type=float,
@@ -39,10 +39,13 @@ parser.add_argument('--output-dir', dest='output_dir', metavar='DIR', default=No
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+print(device)
+
 def main():
     global args
     args = parser.parse_args()
-    test_list = make_dataset(args.data)
+    # test_list = make_dataset(args.data)
+    test_list = make_dataset_new(args.data,phase="test",flowmap_exist=False)
     # test_list = make_real_dataset(args.data)
 
     # if args.arch == 'pwc':
@@ -56,15 +59,15 @@ def main():
     #     model.load_state_dict(weights['state_dict'])
 
     if args.pretrained is not None:
-        network_data = torch.load(args.pretrained)
+        network_data = torch.load(args.pretrained,map_location=device)
         args.arch = network_data['arch']
         print("=> using pre-trained model '{}'".format(args.arch))
-        model = models.__dict__[args.arch](data=network_data).cuda()
+        model = models.__dict__[args.arch](data=network_data).to(device=device)
         if 'div_flow' in network_data.keys():
             args.div_flow = network_data['div_flow']
 
     else:
-        model = models.pwc_dc_net('models/pwc_net.pth.tar').cuda()
+        model = models.pwc_dc_net('models/pwc_net.pth.tar').to(device=device)
 
 
     model.eval()
@@ -86,7 +89,6 @@ def main():
             transforms.Normalize(mean=[0,0,0], std=[255,255,255]),
             transforms.Normalize(mean=[0.411,0.432,0.45], std=[1,1,1])
         ])
-
     target_transform = transforms.Compose([
         flow_transforms.ArrayToTensor(),
         transforms.Normalize(mean=[0,0],std=[args.div_flow,args.div_flow])
@@ -104,13 +106,13 @@ def main():
 
         if flow_path is None:
             _, h, w = img1.size()
-            new_h = int(np.floor(h/256)*256)
-            new_w = int(np.floor(w/448)*448)
+        #     new_h = int(np.floor(h/256)*256)
+        #     new_w = int(np.floor(w/448)*448)
 
-            # if i>744:
-            #     import ipdb; ipdb.set_trace()
-            img1 = F.upsample(img1.unsqueeze(0), (new_h,new_w), mode='bilinear').squeeze()
-            img2 = F.upsample(img2.unsqueeze(0), (new_h,new_w), mode='bilinear').squeeze()
+        #     # if i>744:
+        #     #     import ipdb; ipdb.set_trace()
+        #     img1 = F.upsample(img1.unsqueeze(0), (new_h,new_w), mode='bilinear').squeeze()
+        #     img2 = F.upsample(img2.unsqueeze(0), (new_h,new_w), mode='bilinear').squeeze()
 
 
         if flow_path is not None:
@@ -144,8 +146,8 @@ def main():
                     avg_parts_epe[bk].update(epe_parts[bk].item(), gtflow_var.size(0))
 
         # record motion warping error
-        raw_im1 = raw_im1.cuda().unsqueeze(0)
-        raw_im2 = raw_im2.cuda().unsqueeze(0)
+        raw_im1 = raw_im1.to(device=device).unsqueeze(0)
+        raw_im2 = raw_im2.to(device=device).unsqueeze(0)
         mot_err = motion_warping_error(raw_im1, raw_im2, args.div_flow*output)
         avg_mot_err.update(mot_err.item(), raw_im1.size(0))
 
@@ -157,22 +159,23 @@ def main():
                 os.system('mkdir -p '+output_path[:-15])
             else:
                 output_path = img_paths[0].replace(args.data, args.output_dir)
+                output_path = output_path.replace('/test/','/')
+                output_path = output_path.replace('/composition/','/')
                 os.system('mkdir -p '+output_path[:-10])
                 output_path = output_path.replace('.png', '.flo')
-            output_path = output_path.replace('/flow/','/')
-            # upsampled_output = F.interpolate(output, (h//4,w//4), mode='bilinear', align_corners=False) # resize to 0.25 for storage
-            # flow_write(output_path,  upsampled_output.cpu()[0].data.numpy()[0],  upsampled_output.cpu()[0].data.numpy()[1])
-            flow_write(output_path,  output.cpu()[0].data.numpy()[0],  output.cpu()[0].data.numpy()[1])
+            upsampled_output = F.interpolate(output, (h//4,w//4), mode='bilinear', align_corners=False) # resize to 0.25 for storage
+            flow_write(output_path,  upsampled_output.cpu()[0].data.numpy()[0],  upsampled_output.cpu()[0].data.numpy()[1])
+            # flow_write(output_path,  output.cpu()[0].data.numpy()[0],  output.cpu()[0].data.numpy()[1])
 
-    if args.save_name is not None:
-        epe_dict = {}
-        for bk in BODY_MAP.keys():
-            epe_dict[bk] = avg_parts_epe[bk].avg
-        epe_dict['full_epe'] = flow_epe.avg
-        np.save(os.path.join('results', args.save_name), epe_dict)
+    # if args.save_name is not None:
+    #     epe_dict = {}
+    #     for bk in BODY_MAP.keys():
+    #         epe_dict[bk] = avg_parts_epe[bk].avg
+    #     epe_dict['full_epe'] = flow_epe.avg
+    #     np.save(os.path.join('results', args.save_name), epe_dict)
 
-    print("Averge EPE",flow_epe.avg )
-    print("Motion warping error", avg_mot_err.avg)
+    # print("Averge EPE",flow_epe.avg )
+    # print("Motion warping error", avg_mot_err.avg)
 
 def partsEPE(output, gtflow, seg_mask):
     parts_epe_dict = {}
@@ -218,10 +221,37 @@ def make_dataset(dir, phase='test'):
 
     return images
 
+
+def make_dataset_new(dir, phase='test',flowmap_exist=False):
+    '''Will search for triplets that go by the pattern '[name]_img1.ppm  [name]_img2.ppm    [name]_flow.flo' '''
+    images = []
+    flow_map=None
+    for img1 in sorted( glob.glob(os.path.join(dir, phase+'/*/composition/*.png')) ):
+        #flow_map = os.path.relpath(flow_map, dir)
+        if flowmap_exist:
+            flow_map = img1.replace('/composition/', '/flow/')
+            flow_map = flow_map.replace('.png', '.flo')
+
+        img2 = img1[:-9] + str(int(img1.split('/')[-1][:-4])+1).zfill(5) + '.png'
+
+        seg_mask = img1.replace('/composition/', '/segm_EXR/')
+        seg_mask = seg_mask.replace('.png', '.exr')
+
+        if int(img1.split('/')[-1][:-4]) % 10 == 9:
+            continue
+
+        if not (os.path.isfile(os.path.join(dir,img1)) and os.path.isfile(os.path.join(dir,img2))):
+            continue
+
+        images.append([[img1,img2],flow_map, seg_mask])
+
+    return images
+
+
 def make_real_dataset(dir):
     '''Will search for triplets that go by the pattern '[name]_img1.ppm  [name]_img2.ppm    [name]_flow.flo' '''
     images = []
-    for img1 in sorted( glob.glob(os.path.join(dir, '*1.png')) ):
+    for img1 in sorted( glob.glob(os.path.join(dir, '*/composition/*.png')) ):
         img2 = img1[:-9] + str(int(img1.split('/')[-1][:-4])+1).zfill(5) + '.png'
 
         if int(img1.split('/')[-1][:-4]) % 10 == 9:

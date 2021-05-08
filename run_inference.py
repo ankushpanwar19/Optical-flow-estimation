@@ -8,8 +8,9 @@ import models
 from tqdm import tqdm
 import torchvision.transforms as transforms
 import flow_transforms
-from scipy.ndimage import imread
-from scipy.misc import imsave
+# from scipy.ndimage import imread
+# from scipy.misc import imread,imsave
+from imageio import imread,imwrite as imsave
 import numpy as np
 from main import flow2rgb
 
@@ -19,9 +20,9 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch FlowNet inference on a folder of img pairs',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('data', metavar='DIR',
+parser.add_argument('--data', metavar='DIR',
                     help='path to images folder, image names must match \'[name]0.[ext]\' and \'[name]1.[ext]\'')
-parser.add_argument('pretrained', metavar='PTH', help='path to pre-trained model')
+parser.add_argument('--pretrained', metavar='PTH', help='path to pre-trained model')
 parser.add_argument('--output', metavar='DIR', default=None,
                     help='path to output folder. If not set, will be created in data folder')
 parser.add_argument('--div-flow', default=20, type=float,
@@ -32,9 +33,8 @@ parser.add_argument('--max_flow', default=None, type=float,
 parser.add_argument('--upsampling', '-u', choices=['nearest', 'bilinear'], default=None, help='if not set, will output FlowNet raw input,'
                     'which is 4 times downsampled. If set, will output full resolution flow map, with selected upsampling')
 parser.add_argument('--bidirectional', action='store_true', help='if set, will output invert flow (from 1 to 0) along with regular flow')
-
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
+print(device)
 
 @torch.no_grad()
 def main():

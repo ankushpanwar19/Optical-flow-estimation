@@ -10,3 +10,4 @@ experiment_recorder.md
 mcp/*
 .vscode/*
 run_command.*
+logs/*

@@ -4,13 +4,15 @@ import glob
 from tqdm import tqdm
 import cv2
 import numpy as np
-from scipy.ndimage import imread
-from scipy.misc import imsave
+# from scipy.ndimage import imread
+# from scipy.misc import imsave
+# from matplotlib.pyplot import imread
+from imageio import imread,imwrite as imsave
 
 
 parser = argparse.ArgumentParser(description='Test Optical Flow',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('data', metavar='DIR', help='path to dataset')
+parser.add_argument('--data', metavar='DIR', help='path to dataset')
 parser.add_argument('--pred-dir', dest='pred_dir', type=str, default=None,
                     help='path to prediction folder')
 parser.add_argument('--output-dir', dest='output_dir', type=str, default=None,
@@ -24,11 +26,12 @@ def main():
 
     # dirs = ['flownet2/inference/run.epoch-0-flow-field', 'LDOF', 'pcaflow',
     #         'EpicFlow', 'spynet', 'spynet_mhf', 'pwc', 'pwc_mhf']
-    dirs = ['flownet2_real', 'LDOF_real', 'pcaflow_real', 'EpicFlow_real', 'flownet2s_real', 'spynet_real', 'spynet_mhf_real', 'pwc_real', 'pwc_mhf_real']
+    # dirs = ['flownet2_real', 'LDOF_real', 'pcaflow_real', 'EpicFlow_real', 'flownet2s_real', 'spynet_real', 'spynet_mhf_real', 'pwc_real', 'pwc_mhf_real']
+    dirs = ['pwc_mhf_real']
 
     for i, (img1path, img2path, flowpath) in enumerate(tqdm(test_list)):
-        img1 = imread(img1path, mode='RGB')
-        img2 = imread(img2path, mode='RGB')
+        img1 = imread(img1path, as_gray=False, pilmode="RGB")
+        img2 = imread(img2path, as_gray=False, pilmode="RGB")
         if flowpath is not None:
             gtflow = flow2rgb(load_flo(flowpath))
 
@@ -55,10 +58,12 @@ def main():
             bottomrow = np.hstack((gtflow, predflows[dirs[4]], predflows[dirs[5]], predflows[dirs[6]], predflows[dirs[7]]))
 
         else:
-            toprow = np.hstack((img1[:,:,:3], predflows[dirs[0]], predflows[dirs[1]], predflows[dirs[2]], predflows[dirs[3]]))
-            bottomrow = np.hstack((predflows[dirs[4]], predflows[dirs[5]], predflows[dirs[6]], predflows[dirs[7]], predflows[dirs[8]]))
+            toprow=np.hstack((img1[:,:,:3], predflows[dirs[0]]))
+            # toprow = np.hstack((img1[:,:,:3], predflows[dirs[0]], predflows[dirs[1]], predflows[dirs[2]], predflows[dirs[3]]))
+            # bottomrow = np.hstack((predflows[dirs[4]], predflows[dirs[5]], predflows[dirs[6]], predflows[dirs[7]], predflows[dirs[8]]))
 
-        viz_im = np.vstack((toprow, bottomrow))
+        # viz_im = np.vstack((toprow, bottomrow))
+        viz_im = toprow
         save_path = fpath.replace(args.pred_dir, args.output_dir).replace(dirs[-1]+'/', '').replace('.flo', '.png')
         os.system('mkdir -p '+os.path.dirname(save_path))
         imsave(save_path, viz_im)
@@ -97,14 +102,14 @@ def load_flo(path):
 def make_real_dataset(dir):
     '''Will search for triplets that go by the pattern '[name]_img1.ppm  [name]_img2.ppm    [name]_flow.flo' '''
     images = []
-    for img1 in sorted( glob.glob(os.path.join(dir, '*/*1.png')) ):
+    for img1 in sorted( glob.glob(os.path.join(dir, '*1.png')) ):
         img2 = img1[:-9] + str(int(img1.split('/')[-1][:-4])+1).zfill(5) + '.png'
 
         if int(img1.split('/')[-1][:-4]) % 10 == 9:
             continue
 
-        if int(img1.split('/')[-1][:-4]) < 90:
-            continue
+        # if int(img1.split('/')[-1][:-4]) < 90:
+        #     continue
 
         if not (os.path.isfile(os.path.join(dir,img1)) and os.path.isfile(os.path.join(dir,img2))):
             continue
