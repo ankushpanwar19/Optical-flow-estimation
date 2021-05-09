@@ -81,6 +81,7 @@ parser.add_argument('--no-date', action='store_true',
 parser.add_argument('--div-flow', default=20, type=float,
                     help='value by which flow will be divided. Original value is 20 but 1 with batchNorm gives good results')
 parser.add_argument('--milestones', default=[10,20,30,40], metavar='N', nargs='*', help='epochs at which learning rate is divided by 2')
+parser.add_argument('--exp_desc', default="Test", type=str, help='helps to identify the experiment changes')
 
 best_EPE = -1
 n_iter = 0
@@ -97,9 +98,15 @@ def main():
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
+    # saving configuration to json file
     config_path= os.path.join(save_path,"config.json")
     with open(config_path, 'w') as f:
         json.dump(args.__dict__, f, indent=2)
+
+    # saving code file to  zi[]
+    zip_path=config_path= os.path.join(save_path,"code.zip")
+    files_to_zip=" models datasets evaluate_humanflow.py flow_transforms.py generate_visuals.py main.py multiscaleloss.py run_inference.py test_humanflow.py"
+    os.system('zip -r '+ zip_path+files_to_zip)
 
     train_writer = SummaryWriter(os.path.join(save_path,'train'))
     test_writer = SummaryWriter(os.path.join(save_path,'test'))
