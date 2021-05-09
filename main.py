@@ -4,6 +4,7 @@ import argparse
 import os
 import shutil
 import time
+import json
 
 import torch
 import torch.nn.functional as F
@@ -79,11 +80,12 @@ parser.add_argument('--no-date', action='store_true',
                     help='don\'t append date timestamp to folder' )
 parser.add_argument('--div-flow', default=20, type=float,
                     help='value by which flow will be divided. Original value is 20 but 1 with batchNorm gives good results')
-parser.add_argument('--milestones', default=[3,6,9], metavar='N', nargs='*', help='epochs at which learning rate is divided by 2')
+parser.add_argument('--milestones', default=[10,20,30,40], metavar='N', nargs='*', help='epochs at which learning rate is divided by 2')
 
 best_EPE = -1
 n_iter = 0
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 
 
 def main():
@@ -94,6 +96,10 @@ def main():
     print('=> will save everything to {}'.format(save_path))
     if not os.path.exists(save_path):
         os.makedirs(save_path)
+
+    config_path= os.path.join(save_path,"config.json")
+    with open(config_path, 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
 
     train_writer = SummaryWriter(os.path.join(save_path,'train'))
     test_writer = SummaryWriter(os.path.join(save_path,'test'))
