@@ -2,6 +2,7 @@
 
 import argparse
 import os
+from random import Random
 import shutil
 import time
 import json
@@ -80,7 +81,7 @@ parser.add_argument('--no-date', action='store_true',
                     help='don\'t append date timestamp to folder' )
 parser.add_argument('--div-flow', default=20, type=float,
                     help='value by which flow will be divided. Original value is 20 but 1 with batchNorm gives good results')
-parser.add_argument('--milestones', default=[10,20,30,40], metavar='N', nargs='*', help='epochs at which learning rate is divided by 2')
+parser.add_argument('--milestones', default=[15,30,40], metavar='N', nargs='*', help='epochs at which learning rate is divided by 2')
 parser.add_argument('--exp_desc', default="Test", type=str, help='helps to identify the experiment changes')
 
 best_EPE = -1
@@ -135,6 +136,8 @@ def main():
         ])
     else:
         co_transform = flow_transforms.Compose([
+            flow_transforms.RandomColorWarp(10,0.1),
+            flow_transforms.RandomScale(0.8,1.2),
             flow_transforms.RandomTranslate(10),
             flow_transforms.RandomRotate(10,5),
             flow_transforms.RandomCrop((320,448)),

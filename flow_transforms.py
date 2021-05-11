@@ -248,3 +248,31 @@ class RandomColorWarp(object):
         inputs[1] = inputs[1][:,:,random_order]
 
         return inputs, target
+
+class RandomScale(object):
+    """ Rescales the inputs and target arrays to the given 'size'.
+    'size' will be the size of the smaller edge.
+    For example, if height > width, then image will be
+    rescaled to (size * height / width, size)
+    size: size of the smaller edge
+    interpolation order: Default: 2 (bilinear)
+    """
+
+    def __init__(self, ratio_min=0.5,ratio_max=1.5, order=2):
+        self.ratio_min = ratio_min
+        self.ratio_max = ratio_max
+        self.order = order
+
+    def __call__(self, inputs, target):
+        h, w, _ = inputs[0].shape
+
+        apply_filter=np.random.randint(0,2)
+        if (apply_filter==0):
+            return inputs,target
+        self.ratio=random.uniform(self.ratio_min, self.ratio_max)
+        inputs[0] = ndimage.interpolation.zoom(inputs[0], [self.ratio,self.ratio,1], order=self.order)
+        inputs[1] = ndimage.interpolation.zoom(inputs[1], [self.ratio,self.ratio,1], order=self.order)
+
+        target = ndimage.interpolation.zoom(target, [self.ratio,self.ratio,1], order=self.order)
+        target *= self.ratio
+        return inputs, target
