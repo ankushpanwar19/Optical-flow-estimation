@@ -14,6 +14,10 @@ import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
+
+
+from spatial_correlation_sampler import spatial_correlation_sample
+
 import flow_transforms
 import models
 import datasets
@@ -21,6 +25,7 @@ from multiscaleloss import multiscaleEPE, realEPE
 import datetime
 from tensorboardX import SummaryWriter
 import numpy as np
+
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__"))
@@ -30,9 +35,10 @@ dataset_names = sorted(name for name in datasets.__all__)
 parser = argparse.ArgumentParser(description='PyTorch FlowNet Training on several datasets',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data', metavar='DIR',
+                    default='/cluster/project/infk/hilliges/lectures/mp21/project6/dataset/', 
                     help='path to dataset')
 parser.add_argument('--name', default='demo', help='name of the experiment')
-parser.add_argument('--dataset', metavar='DATASET', default='flying_chairs',
+parser.add_argument('--dataset', metavar='DATASET', default='humanflow',
                     choices=dataset_names,
                     help='dataset type : ' +
                     ' | '.join(dataset_names))
