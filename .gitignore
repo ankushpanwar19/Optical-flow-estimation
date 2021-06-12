@@ -11,3 +11,4 @@ mcp/*
 .vscode/*
 run_command.*
 logs/*
+*.ipynb

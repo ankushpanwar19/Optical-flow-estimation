@@ -96,3 +96,31 @@ def motion_warping_error(first, last, flow):
     diff = (first - last_warped) * valid_pixels
     diff = diff.pow(2)
     return diff.mean()
+
+def sequence_loss(flow_pred, flow_gt, gamma=0.8):
+    time_steps = len(flow_pred)
+    weights = [gamma**(time_steps - i) for i in range(1, time_steps+1)]
+    loss = 0.0
+    for i in range(time_steps):
+        loss += weights[i] * (flow_pred[i] - flow_gt).abs()
+    return loss
+
+
+def sequence_loss(flow_pred, flow_gt, gamma=0.8, max_flow=400):
+    time_steps = len(flow_pred)
+    weights = [gamma**(time_steps - i) for i in range(1, time_steps+1)]
+
+    # exlude invalid pixels and extremely large diplacements
+    # mag = torch.sum(flow_gt**2, dim=1).sqrt()
+    # mask1 = ~((flow_gt[:, :, 0] == 0) & (flow_gt[:, :, 1] == 0))
+    # mask2 = mag < max_flow
+    # valid = (mask1 & mask2).float()
+
+    loss = 0.0
+    for i in range(time_steps):
+        err = (weights[i] * (flow_pred[i] - flow_gt)).abs()
+        # err = err * valid[:, None]
+        loss += err.mean()
+        
+    return loss
+
