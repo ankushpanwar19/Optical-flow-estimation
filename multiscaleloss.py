@@ -121,6 +121,10 @@ def sequence_loss(flow_pred, flow_gt, gamma=0.8, max_flow=400):
         err = (weights[i] * (flow_pred[i] - flow_gt)).abs()
         # err = err * valid[:, None]
         loss += err.mean()
+    
+    epe = torch.sum((flow_pred[-1] - flow_gt)**2, dim=1).sqrt()
         
-    return loss
+    return loss, epe.mean()
+
+
 

@@ -22,3 +22,8 @@ def bilinear_sampler(img, coords, mode='bilinear', mask=False):
         return img, mask.float()
 
     return img
+
+
+def upflow8(flow, mode='bilinear'):
+    new_size = (8 * flow.shape[2], 8 * flow.shape[3])
+    return 8 * F.interpolate(flow, size=new_size, mode=mode, align_corners=True)

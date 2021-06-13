@@ -3,9 +3,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torchinfo import summary
-from utils import coords_grid, bilinear_sampler
-
-SEED = 45
+from .utils import coords_grid, bilinear_sampler
 
 autocast = torch.cuda.amp.autocast
 

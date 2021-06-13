@@ -1,5 +1,6 @@
 import argparse
 import glob
+from models import RAFTNet
 import os
 import numpy as np
 import cv2
@@ -45,7 +46,7 @@ def main():
     global args
     args = parser.parse_args()
     # test_list = make_dataset(args.data)
-    test_list = make_dataset_new(args.data,phase="test",flowmap_exist=False)
+    test_list = make_dataset_new(args.data,phase="val",flowmap_exist=True)
     # test_list = make_real_dataset(args.data)
 
     # if args.arch == 'pwc':
@@ -58,18 +59,22 @@ def main():
     #     weights = torch.load('models/FlowNet2_checkpoint.pth.tar')
     #     model.load_state_dict(weights['state_dict'])
 
-    if args.pretrained is not None:
-        network_data = torch.load(args.pretrained,map_location=device)
-        args.arch = network_data['arch']
-        print("=> using pre-trained model '{}'".format(args.arch))
-        model = models.__dict__[args.arch](data=network_data).to(device=device)
-        if 'div_flow' in network_data.keys():
-            args.div_flow = network_data['div_flow']
+    # if args.pretrained is not None:
+    #     network_data = torch.load(args.pretrained,map_location=device)
+    #     args.arch = network_data['arch']
+    #     print("=> using pre-trained model '{}'".format(args.arch))
+    #     model = models.__dict__[args.arch](data=network_data).to(device=device)
+    #     if 'div_flow' in network_data.keys():
+    #         args.div_flow = network_data['div_flow']
 
-    else:
-        model = models.pwc_dc_net('models/pwc_net.pth.tar').to(device=device)
-
-
+    # else:
+    #     model = models.pwc_dc_net('models/pwc_net.pth.tar').to(device=device)
+    
+    checkpoint = torch.load("./checkpoints/raft_experiment/checkpoint.pth.tar", map_location=device)
+    model = RAFTNet()
+    model.load_state_dict(checkpoint['state_dict'])
+    model.to(device)
+    
     model.eval()
     flow_epe = AverageMeter()
     avg_mot_err = AverageMeter()
@@ -91,7 +96,7 @@ def main():
         ])
     target_transform = transforms.Compose([
         flow_transforms.ArrayToTensor(),
-        transforms.Normalize(mean=[0,0],std=[args.div_flow,args.div_flow])
+        transforms.Normalize(mean=[0,0],std=[args.div_flow, args.div_flow])
     ])
 
 
@@ -132,8 +137,9 @@ def main():
             segmask_var = segmask_var.to(device)
 
         # compute output
-        output = model(input_var)
-
+        image1, image2 = torch.split(input_var, [3, 3], dim=1)
+        output = model(image1, image2)[-1]
+        
         if flow_path is not None:
             epe = args.div_flow*realEPE(output, gtflow_var, sparse=True if 'KITTI' in args.dataset else False)
             epe_parts = partsEPE(output, gtflow_var, segmask_var)

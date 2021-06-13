@@ -1,6 +1,8 @@
 # Based on https://github.com/ClementPinard/FlowNetPytorch
 
 import argparse
+from models.raft_small import RAFT
+from models.raft import RAFTNet
 import os
 from random import Random
 import shutil
@@ -21,14 +23,14 @@ from spatial_correlation_sampler import spatial_correlation_sample
 import flow_transforms
 import models
 import datasets
-from multiscaleloss import multiscaleEPE, realEPE
+from multiscaleloss import multiscaleEPE, realEPE, sequence_loss
 import datetime
 from tensorboardX import SummaryWriter
 import numpy as np
 
-
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__"))
+model_names.append('raft')
 dataset_names = sorted(name for name in datasets.__all__)
 
 
@@ -65,6 +67,9 @@ parser.add_argument('-b', '--batch-size', default=8, type=int,
                     metavar='N', help='mini-batch size')
 parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
                     metavar='LR', help='initial learning rate')
+parser.add_argument('--batch_size',
+                    default=1, type=int,
+                    help='batch_size')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum for sgd, alpha parameter for adam')
 parser.add_argument('--beta', default=0.999, type=float, metavar='M',
@@ -114,7 +119,7 @@ def main():
     zip_path=config_path= os.path.join(save_path,"code.zip")
     files_to_zip=" models datasets evaluate_humanflow.py flow_transforms.py generate_visuals.py main.py multiscaleloss.py run_inference.py test_humanflow.py"
     os.system('zip -r '+ zip_path+files_to_zip)
-
+    
     train_writer = SummaryWriter(os.path.join(save_path,'train'))
     test_writer = SummaryWriter(os.path.join(save_path,'test'))
     output_writers = []
@@ -164,10 +169,10 @@ def main():
                                                                            len(test_set)))
     train_loader = torch.utils.data.DataLoader(
         train_set, batch_size=args.batch_size,
-        num_workers=args.workers, pin_memory=True, shuffle=True)
+        num_workers=args.workers, pin_memory=True, shuffle=True, drop_last=True)
     val_loader = torch.utils.data.DataLoader(
         test_set, batch_size=args.batch_size,
-        num_workers=args.workers, pin_memory=True, shuffle=False)
+        num_workers=args.workers, pin_memory=True, shuffle=False, drop_last=True)
 
     # create model
     if args.pretrained:
@@ -177,9 +182,19 @@ def main():
     else:
         network_data = None
         print("=> creating model '{}'".format(args.arch))
-
-    model = models.__dict__[args.arch](data=network_data).to(device=device)
-    model = torch.nn.DataParallel(model).to(device=device)
+    
+    if args.arch == 'raft':
+        # model = RAFTNet()
+        model = torch.nn.DataParallel(RAFT())
+        check_point = torch.load(
+            "./models/raft_models/raft-small.pth", map_location=device)
+        model.load_state_dict(check_point)
+    
+    else:
+        model = models.__dict__[args.arch](data=network_data).to(device=device)
+        model = torch.nn.DataParallel(model)
+        
+    model = model.to(device=device)
     cudnn.benchmark = True
 
     assert(args.solver in ['adam', 'sgd'])
@@ -187,8 +202,10 @@ def main():
     param_groups = model.parameters()
 
     if args.solver == 'adam':
-        optimizer = torch.optim.Adam(param_groups, args.lr,
-                                     betas=(args.momentum, args.beta), weight_decay=args.weight_decay)
+        # optimizer = torch.optim.Adam(param_groups, args.lr,
+                                    #  betas=(args.momentum, args.beta), weight_decay=args.weight_decay)
+        optimizer = torch.optim.AdamW(param_groups, args.lr, weight_decay=args.weight_decay)
+    
     elif args.solver == 'sgd':
         optimizer = torch.optim.SGD(param_groups, args.lr,
                                     momentum=args.momentum, weight_decay=args.weight_decay)
@@ -201,12 +218,12 @@ def main():
 
     is_best = False
     for epoch in range(args.start_epoch, args.epochs):
-        scheduler.step()
 
         # train for one epoch
         train_loss, train_EPE = train(train_loader, model, optimizer, epoch, train_writer)
         train_writer.add_scalar('mean EPE', train_EPE, epoch)
-
+        
+        scheduler.step()
         # evaluate on validation set
 
         with torch.no_grad():
@@ -227,7 +244,7 @@ def main():
         }, is_best)
 
 
-def train(train_loader, model, optimizer, epoch, train_writer):
+def train(train_loader, model, optimizer, epoch, train_writer,):
     global n_iter, args
     batch_time = AverageMeter()
     data_time = AverageMeter()
@@ -247,17 +264,25 @@ def train(train_loader, model, optimizer, epoch, train_writer):
         data_time.update(time.time() - end)
         target = target.to(device)
         input = torch.cat(input,1).to(device) #concating left and right images
-
+        
         # compute output
-        output = model(input)
-        if args.sparse:
-            # Since Target pooling is not very precise when sparse,
-            # take the highest resolution prediction and upsample it instead of downsampling target
-            h, w = target.size()[-2:]
-            output = [F.interpolate(output[0], (h,w)), *output[1:]]
-
-        loss = multiscaleEPE(output, target, weights=args.multiscale_weights, sparse=args.sparse)
-        flow2_EPE = args.div_flow * realEPE(output[0], target, sparse=args.sparse)
+        
+        if args.arch == 'raft':
+            img1, img2 = torch.split(input, [3, 3], dim=1)
+            output = model(img1, img2)
+            loss, flow2_EPE = sequence_loss(output, target)
+            flow2_EPE = args.div_flow * realEPE(output[-1], target, sparse=args.sparse)
+        else:
+            output = model(input)
+            if args.sparse:
+                # Since Target pooling is not very precise when sparse,
+                # take the highest resolution prediction and upsample it instead of downsampling target
+                h, w = target.size()[-2:]
+                output = [F.interpolate(output[0], (h,w)), *output[1:]]
+            
+            loss = multiscaleEPE(output, target, weights=args.multiscale_weights, sparse=args.sparse)
+        
+            flow2_EPE = args.div_flow * realEPE(output[0], target, sparse=args.sparse)
         # record loss and EPE
         losses.update(loss.item(), target.size(0))
         train_writer.add_scalar('train_loss', loss.item(), n_iter)
@@ -273,6 +298,13 @@ def train(train_loader, model, optimizer, epoch, train_writer):
         end = time.time()
 
         if i % args.print_freq == 0:
+            
+            result_str = 'Epoch: [{0}][{1}/{2}]\t Time {3}\t Data {4}\t Loss {5}\t EPE {6}'.format(
+                epoch, i, epoch_size, batch_time, data_time, losses, flow2_EPEs)
+            
+            with open('result.txt', 'a') as f:
+                f.write(result_str + "\n")
+            
             print('Epoch: [{0}][{1}/{2}]\t Time {3}\t Data {4}\t Loss {5}\t EPE {6}'
                   .format(epoch, i, epoch_size, batch_time,
                           data_time, losses, flow2_EPEs))
@@ -298,8 +330,13 @@ def validate(val_loader, model, epoch, output_writers):
         input = torch.cat(input,1).to(device)
 
         # compute output
-        output = model(input)
-        flow2_EPE = args.div_flow*realEPE(output, target, sparse=args.sparse)
+        if args.arch == 'raft':
+            img1, img2 = torch.split(input, [3, 3], dim=1)
+            output = model(img1, img2)
+            flow2_EPE = args.div_flow * realEPE(output[-1], target, sparse=args.sparse)
+        else:
+            output = model(input)
+            flow2_EPE = args.div_flow*realEPE(output, target, sparse=args.sparse)
         # record EPE
         flow2_EPEs.update(flow2_EPE.item(), target.size(0))
 
@@ -307,15 +344,22 @@ def validate(val_loader, model, epoch, output_writers):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i < len(output_writers):  # log first output of first batches
-            if epoch == 0:
-                mean_values = torch.tensor([0.411,0.432,0.45], dtype=input.dtype).view(3,1,1)
-                output_writers[i].add_image('GroundTruth', flow2rgb(args.div_flow * target[0], max_value=10), 0)
-                output_writers[i].add_image('Inputs', (input[0,:3].cpu() + mean_values).clamp(0,1), 0)
-                output_writers[i].add_image('Inputs', (input[0,3:].cpu() + mean_values).clamp(0,1), 1)
-            output_writers[i].add_image('FlowNet Outputs', flow2rgb(args.div_flow * output[0], max_value=10), epoch)
+        # if i < len(output_writers):  # log first output of first batches
+        #     if epoch == 0:
+        #         mean_values = torch.tensor([0.411,0.432,0.45], dtype=input.dtype).view(3,1,1)
+        #         output_writers[i].add_image('GroundTruth', flow2rgb(args.div_flow * target[0], max_value=10), 0)
+        #         output_writers[i].add_image('Inputs', (input[0,:3].cpu() + mean_values).clamp(0,1), 0)
+        #         output_writers[i].add_image('Inputs', (input[0,3:].cpu() + mean_values).clamp(0,1), 1)
+        #     output_writers[i].add_image('FlowNet Outputs', flow2rgb(args.div_flow * output[0], max_value=10), epoch)
 
         if i % args.print_freq == 0:
+            
+            result_str = 'Test: [{0}/{1}]\t Time {2}\t EPE {3}'.format(
+                i, len(val_loader), batch_time, flow2_EPEs)
+            
+            with open('val_result.txt', 'a') as f:
+                f.write(result_str + "\n")
+                
             print('Test: [{0}/{1}]\t Time {2}\t EPE {3}'
                   .format(i, len(val_loader), batch_time, flow2_EPEs))
 
