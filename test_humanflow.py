@@ -46,7 +46,7 @@ def main():
     global args
     args = parser.parse_args()
     # test_list = make_dataset(args.data)
-    test_list = make_dataset_new(args.data,phase="val",flowmap_exist=True)
+    test_list = make_dataset_new(args.data, phase="test",flowmap_exist=False)
     # test_list = make_real_dataset(args.data)
 
     # if args.arch == 'pwc':
@@ -71,7 +71,7 @@ def main():
     #     model = models.pwc_dc_net('models/pwc_net.pth.tar').to(device=device)
     
     checkpoint = torch.load("./checkpoints/raft_experiment/checkpoint.pth.tar", map_location=device)
-    model = RAFTNet()
+    model = models.RAFT()
     model.load_state_dict(checkpoint['state_dict'])
     model.to(device)
     

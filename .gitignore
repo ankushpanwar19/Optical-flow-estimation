@@ -13,3 +13,5 @@ run_command.*
 logs/*
 *.ipynb
 results/
+result.txt
+val_result.txt
