@@ -302,7 +302,7 @@ def train(train_loader, model, optimizer, epoch, train_writer,):
             result_str = 'Epoch: [{0}][{1}/{2}]\t Time {3}\t Data {4}\t Loss {5}\t EPE {6}'.format(
                 epoch, i, epoch_size, batch_time, data_time, losses, flow2_EPEs)
             
-            with open('result.txt', 'a') as f:
+            with open('./train-stats/result.txt', 'a') as f:
                 f.write(result_str + "\n")
             
             print('Epoch: [{0}][{1}/{2}]\t Time {3}\t Data {4}\t Loss {5}\t EPE {6}'
@@ -357,7 +357,7 @@ def validate(val_loader, model, epoch, output_writers):
             result_str = 'Test: [{0}/{1}]\t Time {2}\t EPE {3}'.format(
                 i, len(val_loader), batch_time, flow2_EPEs)
             
-            with open('val_result.txt', 'a') as f:
+            with open('./train-stats/val_result.txt', 'a') as f:
                 f.write(result_str + "\n")
                 
             print('Test: [{0}/{1}]\t Time {2}\t EPE {3}'
