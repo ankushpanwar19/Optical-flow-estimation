@@ -128,8 +128,8 @@ class RandomCrop(object):
         if w == tw and h == th:
             return inputs,target
 
-        x1 = random.randint(0, w - tw)
-        y1 = random.randint(0, h - th)
+        x1 = np.random.randint(0, w - tw)
+        y1 = np.random.randint(0, h - th)
         inputs[0] = inputs[0][y1: y1 + th,x1: x1 + tw]
         inputs[1] = inputs[1][y1: y1 + th,x1: x1 + tw]
         return inputs, target[y1: y1 + th,x1: x1 + tw]
@@ -269,7 +269,7 @@ class RandomScale(object):
         apply_filter=np.random.randint(0,2)
         if (apply_filter==0):
             return inputs,target
-        self.ratio=random.uniform(self.ratio_min, self.ratio_max)
+        self.ratio=np.random.uniform(self.ratio_min, self.ratio_max)
         inputs[0] = ndimage.interpolation.zoom(inputs[0], [self.ratio,self.ratio,1], order=self.order)
         inputs[1] = ndimage.interpolation.zoom(inputs[1], [self.ratio,self.ratio,1], order=self.order)
 

@@ -17,7 +17,7 @@ import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
-
+from datasets.data_scheduler import CurriculumSampler
 
 from spatial_correlation_sampler import spatial_correlation_sample
 
@@ -95,6 +95,8 @@ parser.add_argument('--div-flow', default=20, type=float,
                     help='value by which flow will be divided. Original value is 20 but 1 with batchNorm gives good results')
 parser.add_argument('--milestones', default=[15,30,40], metavar='N', nargs='*', help='epochs at which learning rate is divided by 2')
 parser.add_argument('--exp_desc', default="Test", type=str, help='helps to identify the experiment changes')
+parser.add_argument('--curriculum_learn', type=bool, default=False)
+parser.add_argument('--curriculum_idx_path', default="scheduling/sortidx_for_schedule.npy", help='file to schedule curriculum learning')
 
 best_EPE = -1
 n_iter = 0
@@ -221,8 +223,27 @@ def main():
 
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.milestones, gamma=0.5)
 
+    ##### curriculium learning parameters ######
+    sort_idx_path=args.curriculum_idx_path
+    sort_idx = np.load(sort_idx_path)
+
+    initial_ratio=0.5
+    power=0.5
+    scheduled_ratio = lambda ep: (1. - initial_ratio) / ((args.epochs - int(args.epochs/5)) ** power) * (ep ** power) + initial_ratio
+    schedule_strategy='expand'
+    ratio=initial_ratio
+
     is_best = False
     for epoch in range(args.start_epoch, args.epochs):
+
+        if args.curriculum_learn==True and ratio<1:
+            ratio = float(scheduled_ratio(epoch))
+            # print('Epoch: {}, using sampler'.format(epoch))
+            sampler = CurriculumSampler(train_set, sort_idx, ratio,initial_ratio, schedule_strategy, seed=epoch)
+
+            train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size,num_workers=args.workers, pin_memory=True,sampler=sampler)
+        
+        print('Epoch: {}, using sampler and data batches:{}'.format(epoch,len(train_loader)))
 
         # train for one epoch
         train_loss, train_EPE = train(train_loader, model, optimizer, epoch, train_writer)
@@ -307,13 +328,14 @@ def train(train_loader, model, optimizer, epoch, train_writer,):
             result_str = 'Epoch: [{0}][{1}/{2}]\t Time {3}\t Data {4}\t Loss {5}\t EPE {6}'.format(
                 epoch, i, epoch_size, batch_time, data_time, losses, flow2_EPEs)
             
-            with open('./train-stats/result.txt', 'a') as f:
-                f.write(result_str + "\n")
+            # with open('./train-stats/result.txt', 'a') as f:
+            #     f.write(result_str + "\n")
             
             print('Epoch: [{0}][{1}/{2}]\t Time {3}\t Data {4}\t Loss {5}\t EPE {6}'
                   .format(epoch, i, epoch_size, batch_time,
                           data_time, losses, flow2_EPEs))
         n_iter += 1
+        break
         if i >= epoch_size:
             break
 
@@ -363,8 +385,8 @@ def validate(val_loader, model, epoch, output_writers):
             result_str = 'Test: [{0}/{1}]\t Time {2}\t EPE {3}'.format(
                 i, len(val_loader), batch_time, flow2_EPEs)
             
-            with open('./train-stats/val_result.txt', 'a') as f:
-                f.write(result_str + "\n")
+            # with open('./train-stats/val_result.txt', 'a') as f:
+            #     f.write(result_str + "\n")
                 
             print('Test: [{0}/{1}]\t Time {2}\t EPE {3}'
                   .format(i, len(val_loader), batch_time, flow2_EPEs))
