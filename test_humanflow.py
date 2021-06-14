@@ -20,7 +20,6 @@ from tqdm import tqdm
 
 
 
-
 parser = argparse.ArgumentParser(description='Test Optical Flow',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data', metavar='DIR', help='path to dataset')
@@ -140,7 +139,7 @@ def main():
         # compute output
         model.eval()
         image1, image2 = torch.split(input_var, [3, 3], dim=1)
-        output = model(image1, image2, iters=24)[-1]
+        output = model(image1, image2, iters=16)[-1]
         output = output/20.0
         
         if flow_path is not None:
