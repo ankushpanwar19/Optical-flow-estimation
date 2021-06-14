@@ -14,3 +14,4 @@ logs/*
 *.ipynb
 results/
 train-stats/
+results_val/

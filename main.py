@@ -1,6 +1,7 @@
 # Based on https://github.com/ClementPinard/FlowNetPytorch
 
 import argparse
+from models.raft_full import BasicRAFT
 from models.raft_small import RAFT
 from models.raft import RAFTNet
 import os
@@ -134,7 +135,7 @@ def main():
 
     target_transform = transforms.Compose([
         flow_transforms.ArrayToTensor(),
-        transforms.Normalize(mean=[0,0],std=[args.div_flow,args.div_flow])
+        # transforms.Normalize(mean=[0,0],std=[args.div_flow,args.div_flow])
     ])
 
     if 'KITTI' in args.dataset:
@@ -184,11 +185,15 @@ def main():
         print("=> creating model '{}'".format(args.arch))
     
     if args.arch == 'raft':
-        # model = RAFTNet()
-        model = torch.nn.DataParallel(RAFT())
-        check_point = torch.load(
-            "./models/raft_models/raft-small.pth", map_location=device)
-        model.load_state_dict(check_point)
+        # model = torch.nn.DataParallel(RAFTNet())
+        model = torch.nn.DataParallel(BasicRAFT())
+        data = torch.load("./models/raft_models/raft-things.pth", map_location=device)
+        model.load_state_dict(data)
+
+        # model = torch.nn.DataParallel(RAFT())
+        # check_point = torch.load(
+        #     "./models/raft_models/raft-small.pth", map_location=device)
+        # model.load_state_dict(check_point)
     
     else:
         model = models.__dict__[args.arch](data=network_data).to(device=device)
@@ -271,7 +276,7 @@ def train(train_loader, model, optimizer, epoch, train_writer,):
             img1, img2 = torch.split(input, [3, 3], dim=1)
             output = model(img1, img2)
             loss, flow2_EPE = sequence_loss(output, target)
-            flow2_EPE = args.div_flow * realEPE(output[-1], target, sparse=args.sparse)
+            # flow2_EPE = args.div_flow * realEPE(output[-1], target, sparse=args.sparse)
         else:
             output = model(input)
             if args.sparse:
@@ -333,7 +338,8 @@ def validate(val_loader, model, epoch, output_writers):
         if args.arch == 'raft':
             img1, img2 = torch.split(input, [3, 3], dim=1)
             output = model(img1, img2)
-            flow2_EPE = args.div_flow * realEPE(output[-1], target, sparse=args.sparse)
+            # flow2_EPE = args.div_flow * realEPE(output[-1], target, sparse=args.sparse)
+            flow2_EPE = torch.sum((output[-1] - target)**2, dim=1).sqrt().mean()
         else:
             output = model(input)
             flow2_EPE = args.div_flow*realEPE(output, target, sparse=args.sparse)

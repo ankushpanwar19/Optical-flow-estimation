@@ -70,8 +70,8 @@ def main():
     # else:
     #     model = models.pwc_dc_net('models/pwc_net.pth.tar').to(device=device)
     
-    checkpoint = torch.load("./checkpoints/raft_experiment/checkpoint.pth.tar", map_location=device)
-    model = models.RAFT()
+    checkpoint = torch.load("./checkpoints/raft_experiment/model_best.pth.tar", map_location=device)
+    model = models.BasicRAFT()
     model.load_state_dict(checkpoint['state_dict'])
     model.to(device)
     
@@ -94,9 +94,10 @@ def main():
             transforms.Normalize(mean=[0,0,0], std=[255,255,255]),
             transforms.Normalize(mean=[0.411,0.432,0.45], std=[1,1,1])
         ])
+        
     target_transform = transforms.Compose([
         flow_transforms.ArrayToTensor(),
-        transforms.Normalize(mean=[0,0],std=[args.div_flow, args.div_flow])
+        # transforms.Normalize(mean=[0,0],std=[args.div_flow, args.div_flow])
     ])
 
 
@@ -137,8 +138,10 @@ def main():
             segmask_var = segmask_var.to(device)
 
         # compute output
+        model.eval()
         image1, image2 = torch.split(input_var, [3, 3], dim=1)
-        output = model(image1, image2)[-1]
+        output = model(image1, image2, iters=24)[-1]
+        output = output/20.0
         
         if flow_path is not None:
             epe = args.div_flow*realEPE(output, gtflow_var, sparse=True if 'KITTI' in args.dataset else False)
@@ -341,7 +344,6 @@ BODY_MAP = {'global': 1, 'head': 16, 'lIndex0': 23, 'lIndex1': 33, 'lIndex2': 43
         'rThumb1': 42, 'rThumb2': 52, 'rightCalf': 6, 'rightFoot': 9, 'rightForeArm': 20,
         'rightHand': 22, 'rightShoulder': 15, 'rightThigh': 3, 'rightToes': 12, 'rightUpperArm': 18,
         'spine': 4, 'spine1': 7, 'spine2': 10}
-
 
 
 if __name__ == '__main__':
