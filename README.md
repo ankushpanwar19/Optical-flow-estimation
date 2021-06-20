@@ -27,19 +27,18 @@ pip3 install -r requirements.txt
 ```
 
 If there are issues with the correlation module, compile it from source - [ClementPinard/Pytorch-Correlation-extension](https://github.com/ClementPinard/Pytorch-Correlation-extension).
+
 ## Training
-Note that you are expected to read the code and understand the arguments/hyper-parameters.
 
-For finetuning PWC-Net on Multi-Human Optical Flow dataset use:
-
+For training our final RAFT model on Multi-Human Optical Flow datase use:
 ```sh
-python main.py PATH_TO_DATASET --dataset humanflow -a pwc --div-flow 20 -b8 -j8 --lr LEARNING_RATE --name NAME_OF_EXPERIMENT
+python main.py --data <path to dataset> --dataset humanflow --a raft --div-flow 1 --name base_raftfull --epochs 20 --lr 0.00005 --epoch-size 2000 -b 6
 ```
-## Testing
 
-To test PWC-Net trained on Multi-Human Optical Flow dataset, use
+## Testing
+For getting the final optical flow predictions on the test dataset, run
 ```sh
-python test_humanflow.py PATH_TO_DATASET --dataset humanflow --arch pwc --div-flow 20 --no-norm  --pretrained pretrained/pwc_MHOF.pth.tar
+python test_humanflow.py --data <path to dataset> --dataset humanflow --arch raft --div-flow 1 --no-norm --pretrained checkpoints/base_raftfull/model_best.pth.tar --output-dir checkpoints/base_raftfull/results
 ```
 ## Acknowledgements
 We thank Clement Pinard for his github repository [ClementPinard/FlowNetPytorch](https://github.com/ClementPinard/FlowNetPytorch). We use it as our code base. PWCNet is taken from [NVlabs/PWC-Net](https://github.com/NVlabs/PWC-Net). SPyNet implementation is taken from [sniklaus/pytorch-spynet](https://github.com/sniklaus/pytorch-spynet). Correlation module is taken from [ClementPinard/Pytorch-Correlation-extension](https://github.com/ClementPinard/Pytorch-Correlation-extension).
