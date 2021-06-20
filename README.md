@@ -38,7 +38,7 @@ python main.py --data <path to dataset> --dataset humanflow --a raft --div-flow 
 ## Testing
 For getting the final optical flow predictions on the test dataset, run
 ```sh
-python test_humanflow.py --data <path to dataset> --dataset humanflow --output-dir results
+python test_humanflow.py --data <path to dataset> --dataset humanflow --arch raft --div-flow 1 --no-norm --pretrained checkpoints/base_raftfull/model_best.pth.tar --output-dir checkpoints/base_raftfull/results
 ```
 ## Acknowledgements
 We thank Clement Pinard for his github repository [ClementPinard/FlowNetPytorch](https://github.com/ClementPinard/FlowNetPytorch). We use it as our code base. PWCNet is taken from [NVlabs/PWC-Net](https://github.com/NVlabs/PWC-Net). SPyNet implementation is taken from [sniklaus/pytorch-spynet](https://github.com/sniklaus/pytorch-spynet). Correlation module is taken from [ClementPinard/Pytorch-Correlation-extension](https://github.com/ClementPinard/Pytorch-Correlation-extension).
