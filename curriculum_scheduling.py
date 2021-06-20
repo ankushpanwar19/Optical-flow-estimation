@@ -15,9 +15,12 @@ import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
 import flow_transforms
+from models.raft_full import BasicRAFT
+from models.raft_small import RAFT
+from models.raft import RAFTNet
 import models
 import datasets
-from multiscaleloss import multiscaleEPE, realEPE,individual_EPE
+from multiscaleloss import multiscaleEPE, realEPE,individual_epe
 import datetime
 from tensorboardX import SummaryWriter
 import numpy as np
@@ -25,6 +28,7 @@ from tqdm import tqdm
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__"))
+model_names.append('raft')
 dataset_names = sorted(name for name in datasets.__all__)
 
 
@@ -46,9 +50,9 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='flownets',
                     choices=model_names,
                     help='model architecture, overwritten if pretrained is specified: ' +
                     ' | '.join(model_names))
-parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
                     help='number of data loading workers')
-parser.add_argument('-b', '--batch-size', default=8, type=int,
+parser.add_argument('-b', '--batch-size', default=4, type=int,
                     metavar='N', help='mini-batch size')
 parser.add_argument('--sparse', action='store_true',
                     help='look for NaNs in target flow when computing EPE, avoid if flow is garantied to be dense,'
@@ -89,7 +93,7 @@ def main():
 
     target_transform = transforms.Compose([
         flow_transforms.ArrayToTensor(),
-        transforms.Normalize(mean=[0,0],std=[args.div_flow,args.div_flow])
+        # transforms.Normalize(mean=[0,0],std=[args.div_flow,args.div_flow])
     ])
 
     co_transform=None
@@ -121,16 +125,22 @@ def main():
         network_data = None
         print("=> creating model '{}'".format(args.arch))
 
-    model = models.__dict__[args.arch](data=network_data).to(device=device)
-    model = torch.nn.DataParallel(model).to(device=device)
-    cudnn.benchmark = True
+    if args.arch == 'raft':
+        # model = torch.nn.DataParallel(RAFTNet())
+        model = torch.nn.DataParallel(BasicRAFT())
+        data = torch.load("./models/raft_models/raft-things.pth", map_location=device)
+        model.load_state_dict(data)
+    else:
+        model = models.__dict__[args.arch](data=network_data).to(device=device)
+        model = torch.nn.DataParallel(model).to(device=device)
+        cudnn.benchmark = True
 
-
+    model = model.to(device=device)
    
     with torch.no_grad():
         sort_idx = validate(train_loader, model, 0)
 
-    np.save(os.path.join(args.schedule_out, 'sortidx_for_schedule'),sort_idx)
+    np.save(os.path.join(args.schedule_out, 'sortidx_for_schedule_full'),sort_idx)
 
     print("Finished")
 
@@ -148,13 +158,18 @@ def validate(val_loader, model, epoch):
         input = torch.cat(input,1).to(device)
 
         # compute output
-        output = model(input)
-        flow2_EPE_scores = args.div_flow*individual_EPE(output, target, sparse=args.sparse)
+        if args.arch == 'raft':
+            image1, image2 = torch.split(input, [3, 3], dim=1)
+            output = model(image1, image2)
+            flow2_EPE = individual_epe(output[-1], target)
+        else:
+            output = model(input)
+            flow2_EPE = args.div_flow*individual_epe(output, target)
 
-        epe_score_list+=flow2_EPE_scores.tolist()
+        epe_score_list+=flow2_EPE.tolist()
         # if len(epe_score_list)>8:
         #     break
-
+        
     epe_score_list=np.array(epe_score_list)
     sort_idx=np.argsort(epe_score_list)
 

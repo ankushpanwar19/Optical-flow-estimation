@@ -126,5 +126,11 @@ def sequence_loss(flow_pred, flow_gt, gamma=0.8, max_flow=400):
         
     return loss, epe.mean()
 
+def individual_epe(input_flow, target_flow):
+
+    EPE_map = torch.norm(target_flow-input_flow,2,1)
+
+    return EPE_map
+
 
 

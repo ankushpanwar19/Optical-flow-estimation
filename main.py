@@ -151,7 +151,7 @@ def main():
     else:
         co_transform = flow_transforms.Compose([
             flow_transforms.RandomColorWarp(10,0.1),
-            flow_transforms.RandomScale(0.8,1.2),
+            flow_transforms.RandomScale(0.8,1.5),
             flow_transforms.RandomTranslate(10),
             flow_transforms.RandomRotate(10,5),
             flow_transforms.RandomCrop((320,448)),
@@ -335,7 +335,7 @@ def train(train_loader, model, optimizer, epoch, train_writer,):
                   .format(epoch, i, epoch_size, batch_time,
                           data_time, losses, flow2_EPEs))
         n_iter += 1
-        break
+        # break
         if i >= epoch_size:
             break
 

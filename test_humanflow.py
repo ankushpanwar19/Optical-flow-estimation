@@ -23,11 +23,11 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser(description='Test Optical Flow',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data', metavar='DIR', help='path to dataset')
-parser.add_argument('--arch', dest='arch', type=str, default='pwc', choices=['pwc', 'spynet', 'flownet2'],
+parser.add_argument('--arch', dest='arch', type=str, default='pwc', choices=['raft','pwc', 'spynet', 'flownet2'],
                     help='flow network architecture. Options: pwc | spynet')
 parser.add_argument('--dataset', dest='dataset', default='KITTI', choices=['KITTI_occ', 'humanflow'],
                     help='test dataset')
-parser.add_argument('--div-flow', default=20, type=float,
+parser.add_argument('--div-flow', default=1, type=float,
                     help='value by which flow will be divided. Original value is 20 but 1 with batchNorm gives good results')
 parser.add_argument('--no-norm', action='store_true',
                     help='don\'t normalize the image' )
@@ -58,20 +58,24 @@ def main():
     #     weights = torch.load('models/FlowNet2_checkpoint.pth.tar')
     #     model.load_state_dict(weights['state_dict'])
 
-    # if args.pretrained is not None:
-    #     network_data = torch.load(args.pretrained,map_location=device)
-    #     args.arch = network_data['arch']
-    #     print("=> using pre-trained model '{}'".format(args.arch))
-    #     model = models.__dict__[args.arch](data=network_data).to(device=device)
-    #     if 'div_flow' in network_data.keys():
-    #         args.div_flow = network_data['div_flow']
+    if args.pretrained is not None:
+        print("=> using pre-trained model '{}'".format(args.arch))
+        if args.arch == 'raft':
+            checkpoint = torch.load(args.pretrained, map_location=device)
+            model = models.BasicRAFT()
+            model.load_state_dict(checkpoint['state_dict'])
+        else:
+            network_data = torch.load(args.pretrained,map_location=device)
+            args.arch = network_data['arch']    
+            model = models.__dict__[args.arch](data=network_data).to(device=device)
+            if 'div_flow' in network_data.keys():
+                args.div_flow = network_data['div_flow']
 
-    # else:
-    #     model = models.pwc_dc_net('models/pwc_net.pth.tar').to(device=device)
+    else:
+        model = models.pwc_dc_net('models/pwc_net.pth.tar').to(device=device)
     
-    checkpoint = torch.load("./checkpoints/raft_experiment/model_best.pth.tar", map_location=device)
-    model = models.BasicRAFT()
-    model.load_state_dict(checkpoint['state_dict'])
+    
+    
     model.to(device)
     
     model.eval()
