@@ -7,3 +7,4 @@ argparse
 scipy==1.0.0
 opencv-python
 tqdm
+torchinfo
