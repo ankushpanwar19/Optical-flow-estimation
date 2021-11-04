@@ -1,17 +1,6 @@
-# Humanflow2
-This is an official repository
-
-*Anurag Ranjan, David T. Hoffmann, Dimitrios Tzionas, Siyu Tang, Javier Romero, and Michael J. Black.* Learning Multi-Human Optical Flow. IJCV 2019.
-
-
-[[Project Page]](https://humanflow.is.tue.mpg.de/)
-[[Arxiv]](https://arxiv.org/abs/1910.11667)
+# Optical Flow Estimation
 
 ## Prerequisites
-Download the modified version for Machine Perception project on the Leonhard cluster, via 
-```
-/cluster/project/infk/hilliges/lectures/mp20/project6/
-```
 
 If you like, you can download the original Multi-Human Optical Flow dataset from [here](https://humanflow.is.tue.mpg.de).
 But note that you should use the data on the cluster, since the train/val/test splits have been modified and encrypted from the original dataset.
@@ -25,8 +14,6 @@ Install Pytorch. Install dependencies using
 ```sh
 pip3 install -r requirements.txt
 ```
-
-If there are issues with the correlation module, compile it from source - [ClementPinard/Pytorch-Correlation-extension](https://github.com/ClementPinard/Pytorch-Correlation-extension).
 
 ## Training
 
